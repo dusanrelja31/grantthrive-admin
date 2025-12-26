@@ -17,15 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
-      - name: Install pnpm
-        run: npm install -g pnpm
+          cache: 'npm'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install Dependencies
+        run: pnpm install
 
-      - name: Build project
-        run: pnpm build
+      - name: Build React App
+        run: npm run build
 
       - name: Deploy to EC2 via SSH
         uses: easingthemes/ssh-deploy@v5.1.0
