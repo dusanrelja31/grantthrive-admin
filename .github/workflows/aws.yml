@@ -17,13 +17,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
-
-      - name: Build React App
-        run: npm run build
+        run: pnpm install
 
       - name: Deploy to EC2 via SSH
         uses: easingthemes/ssh-deploy@v5.1.0
