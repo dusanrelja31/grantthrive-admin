@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
           
       - name: Install pnpm
         run: npm install -g pnpm
@@ -25,7 +26,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build project
-        run: pnpm build
+        run: pnpm run build
 
       - name: Deploy to EC2 via SSH
         uses: easingthemes/ssh-deploy@v5.1.0
@@ -33,8 +34,8 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.EC2_HOST }}
           REMOTE_USER: ${{ secrets.EC2_USERNAME }}
-          TARGET: ${{ secrets.EC2_TARGET_DIR }}
           SOURCE: "dist/"   # Use "build/" if CRA
+          TARGET: ${{ secrets.EC2_TARGET_DIR }}
           ARGS: "-rlgoDzvc -i --delete"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
