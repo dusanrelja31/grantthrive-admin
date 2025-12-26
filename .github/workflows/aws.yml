@@ -3,12 +3,11 @@ name: Deploy React to EC2
 on:
   push:
     branches:
-      - main   # Trigger deployment on push to main
+      - main  # Trigger deployment on push to the main branch
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -16,24 +15,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '20' # Use your project's Node version
 
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Build React App
-        run: npm run build
-
+      - name: Install and Build
+        run: |
+          npm install
+          npm run build
+          
       - name: Deploy to EC2 via SSH
-        uses: easingthemes/ssh-deploy@v5.1.0
+        uses: easingthemes/ssh-deploy@v5.1.0 # Common community action for SSH deployment
         with:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.EC2_HOST }}
           REMOTE_USER: ${{ secrets.EC2_USERNAME }}
           TARGET: ${{ secrets.EC2_TARGET_DIR }}
-          SOURCE: "dist/"   # Use "build/" if CRA
-          ARGS: "-rlgoDzvc -i --delete"
+          SOURCE: "dist/" # or "build/" depending on your build tool (Vite uses dist)
+          ARGS: "-rlgoDzvc -i --delete" # --delete removes old files on the server
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
             sudo mkdir -p ${{ secrets.EC2_TARGET_DIR }}
