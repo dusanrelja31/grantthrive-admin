@@ -2,8 +2,7 @@ name: Deploy React (pnpm) to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 concurrency:
   group: production
@@ -14,75 +13,78 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ----------------------------
-      # 1. Checkout source
-      # ----------------------------
+      # --------------------
+      # 1. Checkout
+      # --------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ----------------------------
-      # 2. Setup Node.js
-      # ----------------------------
+      # --------------------
+      # 2. Setup Node
+      # --------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # ----------------------------
-      # 3. Enable pnpm (CRITICAL)
-      # ----------------------------
+      # --------------------
+      # 3. Enable pnpm
+      # --------------------
       - name: Enable pnpm
         run: |
           corepack enable
           corepack prepare pnpm@latest --activate
           pnpm -v
 
-      # ----------------------------
-      # 4. Enable pnpm cache (AFTER pnpm exists)
-      # ----------------------------
-      - name: Setup pnpm cache
+      # --------------------
+      # 4. Cache pnpm
+      # --------------------
+      - name: Enable pnpm cache
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
-      # ----------------------------
-      # 5. Install dependencies
-      # ----------------------------
+      # --------------------
+      # 5. Install deps
+      # --------------------
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ----------------------------
+      # --------------------
       # 6. Build React
-      # ----------------------------
+      # --------------------
       - name: Build React
         run: pnpm build
 
-      # ----------------------------
-      # 7. Upload build to EC2 (atomic)
-      # ----------------------------
-      - name: Upload build to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: dist/*
-          target: /var/www/react-app/releases/${{ github.run_id }}
-          strip_components: 1
+      # --------------------
+      # 7. Prepare SSH
+      # --------------------
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # ----------------------------
-      # 8. Activate release + reload nginx
-      # ----------------------------
-      - name: Activate release
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+      # --------------------
+      # 8. Upload build (RSYNC — FIXES YOUR ISSUE)
+      # --------------------
+      - name: Deploy build to EC2
+        run: |
+          rsync -avz --delete \
+            dist/ \
+            ubuntu@${{ secrets.EC2_HOST }}:/var/www/react-app/releases/${{ github.run_id }}/
+
+      # --------------------
+      # 9. Activate release
+      # --------------------
+      - name: Activate release & reload nginx
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd /var/www/react-app
             ln -sfn releases/${{ github.run_id }} current
             sudo nginx -t
             sudo systemctl reload nginx
+          EOF
