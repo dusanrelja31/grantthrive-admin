@@ -1,73 +1,90 @@
-name: Deploy GrantThrive Admin (React)
+name: Deploy React (pnpm) to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+
+concurrency:
+  group: production
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout
-      - name: Checkout repository
+      # --------------------
+      # 1. Checkout
+      # --------------------
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node (Corepack-enabled)
+      # --------------------
+      # 2. Setup Node
+      # --------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
 
-      # 3️⃣ Enable pnpm
+      # --------------------
+      # 3. Enable pnpm
+      # --------------------
       - name: Enable pnpm
         run: |
           corepack enable
           corepack prepare pnpm@latest --activate
-          pnpm --version
+          pnpm -v
 
-      # 4️⃣ Install dependencies
+      # --------------------
+      # 4. Cache pnpm
+      # --------------------
+      - name: Enable pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # --------------------
+      # 5. Install deps
+      # --------------------
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 5️⃣ Build React app
-      - name: Build
+      # --------------------
+      # 6. Build React
+      # --------------------
+      - name: Build React
         run: pnpm build
 
-      # 6️⃣ Upload build to EC2 (rsync)
-      - name: Upload build to EC2
-        uses: appleboy/rsync-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          source: "dist/"
-          target: "/var/www/grantthrive-admin/releases/${{ github.run_id }}"
-          args: "-avz --delete"
+      # --------------------
+      # 7. Prepare SSH
+      # --------------------
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # 7️⃣ Activate release (atomic symlink)
-      - name: Activate release
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            ln -sfn /var/www/grantthrive-admin/releases/${{ github.run_id }} /var/www/grantthrive-admin/current
+      # --------------------
+      # 8. Upload build (RSYNC — FIXES YOUR ISSUE)
+      # --------------------
+      - name: Deploy build to EC2
+        run: |
+          rsync -avz --delete \
+            dist/ \
+            ubuntu@${{ secrets.EC2_HOST }}:/var/www/react-app/releases/${{ github.run_id }}/
+
+      # --------------------
+      # 9. Activate release
+      # --------------------
+      - name: Activate release & reload nginx
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            cd /var/www/react-app
+            ln -sfn releases/${{ github.run_id }} current
+            sudo nginx -t
             sudo systemctl reload nginx
-
-      # 8️⃣ Cleanup old releases (keep last 5)
-      - name: Cleanup old releases
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            cd /var/www/grantthrive-admin/releases
-            ls -1dt */ | tail -n +6 | xargs rm -rf || true
+          EOF
