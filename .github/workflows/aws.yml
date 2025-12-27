@@ -39,3 +39,6 @@ jobs:
           ARGS: "-rlgoDzvc -i --delete"
           # Ensure StrictHostKeyChecking is set to no for non-interactive hosts
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
+          SCRIPT_BEFORE: |
+            sudo mkdir -p ${{ secrets.EC2_TARGET_DIR }}
+            sudo chown -R ${{ secrets.EC2_USERNAME }}:${{ secrets.EC2_USERNAME }} ${{ secrets.EC2_TARGET_DIR }}
