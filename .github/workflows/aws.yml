@@ -74,7 +74,7 @@ jobs:
         run: |
           rsync -avz --delete \
             dist/ \
-            ubuntu@${{ secrets.EC2_HOST }}:/var/www/react-app/releases/${{ github.run_id }}/
+            ubuntu@${{ secrets.EC2_HOST }}:/var/www/grantthrive/releases/${{ github.run_id }}/
 
       # --------------------
       # 9. Activate release
