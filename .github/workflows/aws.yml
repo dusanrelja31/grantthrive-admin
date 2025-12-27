@@ -1,4 +1,4 @@
-name: Deploy React (pnpm) to EC2
+name: Deploy GrantThrive Admin (React + pnpm)
 
 on:
   push:
@@ -13,53 +13,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------
-      # 1. Checkout
-      # --------------------
+      # 1️⃣ Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --------------------
-      # 2. Setup Node
-      # --------------------
+      # 2️⃣ Setup Node + pnpm cache (ONE STEP ONLY)
       - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # --------------------
-      # 3. Enable pnpm
-      # --------------------
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-          pnpm -v
-
-      # --------------------
-      # 4. Cache pnpm
-      # --------------------
-      - name: Enable pnpm cache
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
-      # --------------------
-      # 5. Install deps
-      # --------------------
+      # 3️⃣ Enable pnpm
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm --version
+
+      # 4️⃣ Install deps
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # --------------------
-      # 6. Build React
-      # --------------------
+      # 5️⃣ Build React
       - name: Build React
         run: pnpm build
 
-      # --------------------
-      # 7. Prepare SSH
-      # --------------------
+      # 6️⃣ Setup SSH
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -67,24 +47,27 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # --------------------
-      # 8. Upload build (RSYNC — FIXES YOUR ISSUE)
-      # --------------------
+      # 7️⃣ Create release directory on EC2
+      - name: Prepare release directory
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} "
+            mkdir -p /var/www/grantthrive-admin/releases/${{ github.run_id }}
+          "
+
+      # 8️⃣ Upload build (rsync)
       - name: Deploy build to EC2
         run: |
           rsync -avz --delete \
             dist/ \
             ubuntu@${{ secrets.EC2_HOST }}:/var/www/grantthrive-admin/releases/${{ github.run_id }}/
 
-      # --------------------
-      # 9. Activate release
-      # --------------------
+      # 9️⃣ Activate release + reload nginx
       - name: Activate release & reload nginx
         run: |
           ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
-            cd /var/www/react-app
-            ln -sfn releases/${{ github.run_id }} current
+            ln -sfn /var/www/grantthrive-admin/releases/${{ github.run_id }} \
+                   /var/www/grantthrive-admin/current
             sudo nginx -t
             sudo systemctl reload nginx
           EOF
