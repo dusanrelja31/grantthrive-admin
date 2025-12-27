@@ -83,7 +83,7 @@ jobs:
         run: |
           ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
-            cd /var/www/react-app
+            cd /var/www/grantthrive-admin
             ln -sfn releases/${{ github.run_id }} current
             sudo nginx -t
             sudo systemctl reload nginx
