@@ -19,6 +19,9 @@ jobs:
 
       - name: Enable pnpm via Corepack
         run: corepack enable
+        
+      - name: Verify pnpm
+        run: pnpm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -36,9 +39,8 @@ jobs:
           # The source directory must be relative to the workspace root
           SOURCE: "dist/"
           # ARGS: "-rlgoDzvc -i --delete" are default for this action, you can remove them if desired
-          ARGS: "-rlgoDzvc -i --delete"
+          ARGS: "-rlgoDzvc --delete"
           # Ensure StrictHostKeyChecking is set to no for non-interactive hosts
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
-            sudo mkdir -p ${{ secrets.EC2_TARGET_DIR }}
-            sudo chown -R ${{ secrets.EC2_USERNAME }}:${{ secrets.EC2_USERNAME }} ${{ secrets.EC2_TARGET_DIR }}
+            mkdir -p ${{ secrets.EC2_TARGET_DIR }}
