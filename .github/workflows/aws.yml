@@ -2,7 +2,8 @@ name: Deploy React (pnpm) to EC2
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 concurrency:
   group: production
@@ -13,55 +14,74 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # ----------------------------
+      # 1. Checkout source
+      # ----------------------------
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1️⃣ Setup Node (NO pnpm cache yet)
+      # ----------------------------
+      # 2. Setup Node.js
+      # ----------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 2️⃣ Enable pnpm (THIS FIXES YOUR ERROR)
+      # ----------------------------
+      # 3. Enable pnpm (CRITICAL)
+      # ----------------------------
       - name: Enable pnpm
         run: |
           corepack enable
           corepack prepare pnpm@latest --activate
           pnpm -v
 
-      # 3️⃣ Enable pnpm cache (AFTER pnpm exists)
+      # ----------------------------
+      # 4. Enable pnpm cache (AFTER pnpm exists)
+      # ----------------------------
       - name: Setup pnpm cache
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
-      # 4️⃣ Install dependencies
+      # ----------------------------
+      # 5. Install dependencies
+      # ----------------------------
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 5️⃣ Build
+      # ----------------------------
+      # 6. Build React
+      # ----------------------------
       - name: Build React
         run: pnpm build
 
-      # 6️⃣ Deploy (atomic)
+      # ----------------------------
+      # 7. Upload build to EC2 (atomic)
+      # ----------------------------
       - name: Upload build to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: dist/*
           target: /var/www/react-app/releases/${{ github.run_id }}
           strip_components: 1
 
+      # ----------------------------
+      # 8. Activate release + reload nginx
+      # ----------------------------
       - name: Activate release
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
             cd /var/www/react-app
             ln -sfn releases/${{ github.run_id }} current
             sudo nginx -t
