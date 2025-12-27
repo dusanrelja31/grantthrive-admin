@@ -16,44 +16,53 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      # 1️⃣ Setup Node (NO pnpm cache yet)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 2️⃣ Enable pnpm (THIS FIXES YOUR ERROR)
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm -v
+
+      # 3️⃣ Enable pnpm cache (AFTER pnpm exists)
+      - name: Setup pnpm cache
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-
+      # 4️⃣ Install dependencies
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 5️⃣ Build
       - name: Build React
         run: pnpm build
 
-      # ---------- ATOMIC DEPLOY ----------
-      - name: Upload build to EC2 (timestamped)
+      # 6️⃣ Deploy (atomic)
+      - name: Upload build to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: |
-            dist/*
-          target: ${{ secrets.EC2_DEPLOY_PATH }}/releases/${{ github.run_id }}
+          source: dist/*
+          target: /var/www/react-app/releases/${{ github.run_id }}
           strip_components: 1
 
-      - name: Activate release & reload nginx
+      - name: Activate release
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            set -e
-            cd ${{ secrets.EC2_DEPLOY_PATH }}
+            cd /var/www/react-app
             ln -sfn releases/${{ github.run_id }} current
             sudo nginx -t
             sudo systemctl reload nginx
