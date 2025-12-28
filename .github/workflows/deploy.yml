@@ -14,74 +14,66 @@ jobs:
 
     steps:
       # --------------------
-      # 1. Checkout
+      # 1. Checkout source
       # --------------------
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       # --------------------
-      # 2. Setup Node
-      # --------------------
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # --------------------
-      # 3. Enable pnpm
+      # 2. Enable pnpm
       # --------------------
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@latest --activate
+          corepack prepare pnpm@9 --activate
           pnpm -v
 
       # --------------------
-      # 4. Cache pnpm
+      # 3. Setup Node.js + pnpm cache
       # --------------------
-      - name: Enable pnpm cache
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       # --------------------
-      # 5. Install deps
+      # 4. Install dependencies
       # --------------------
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       # --------------------
-      # 6. Build React
+      # 5. Build React app
       # --------------------
       - name: Build React
         run: pnpm build
 
       # --------------------
-      # 7. Prepare SSH
+      # 6. Setup SSH (RSA key)
       # --------------------
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       # --------------------
-      # 8. Upload build (RSYNC — FIXES YOUR ISSUE)
+      # 7. Upload build to EC2 (release-based)
       # --------------------
-      - name: Deploy build to EC2
+      - name: Upload build to EC2
         run: |
           rsync -avz --delete \
             dist/ \
-            ubuntu@${{ secrets.EC2_HOST }}:${{ secrets.EC2_PATH }}/${{ github.run_id }}/
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_PATH }}/releases/${{ github.run_id }}/
 
       # --------------------
-      # 9. Activate release
+      # 8. Activate release & reload nginx
       # --------------------
-      - name: Activate release & reload nginx
+      - name: Activate release
         run: |
-          ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd ${{ secrets.EC2_PATH }}
             ln -sfn releases/${{ github.run_id }} current
