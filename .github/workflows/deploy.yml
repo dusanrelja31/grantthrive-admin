@@ -7,16 +7,18 @@ on:
 
 jobs:
   deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: pnpm
 
       - name: Install pnpm
         run: npm install -g pnpm
@@ -24,10 +26,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build app
+      - name: Build React app
         run: pnpm build
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 via rsync
         uses: burnett01/rsync-deployments@v6
         with:
           switches: -avz --delete
