@@ -50,7 +50,7 @@ jobs:
         run: pnpm build
 
       # --------------------
-      # 6. Setup SSH (RSA key)
+      # 6. Setup SSH
       # --------------------
       - name: Setup SSH
         run: |
@@ -60,7 +60,15 @@ jobs:
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       # --------------------
-      # 7. Upload build to EC2 (release-based)
+      # 7. Ensure releases directory exists (FIXES ERROR)
+      # --------------------
+      - name: Ensure release directory exists on EC2
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "mkdir -p ${{ secrets.EC2_PATH }}/releases"
+
+      # --------------------
+      # 8. Upload build to EC2
       # --------------------
       - name: Upload build to EC2
         run: |
@@ -69,7 +77,7 @@ jobs:
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_PATH }}/releases/${{ github.run_id }}/
 
       # --------------------
-      # 8. Activate release & reload nginx
+      # 9. Activate release & reload nginx
       # --------------------
       - name: Activate release
         run: |
