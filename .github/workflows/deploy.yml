@@ -74,7 +74,7 @@ jobs:
         run: |
           rsync -avz --delete \
             dist/ \
-            ubuntu@${{ secrets.EC2_HOST }}:/var/www/grantthrive-admin/releases/${{ github.run_id }}/
+            ubuntu@${{ secrets.EC2_HOST }}:${{ secrets.EC2_PATH }}/${{ github.run_id }}/
 
       # --------------------
       # 9. Activate release
@@ -83,7 +83,7 @@ jobs:
         run: |
           ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
-            cd /var/www/grantthrive-admin
+            cd ${{ secrets.EC2_PATH }}
             ln -sfn releases/${{ github.run_id }} current
             sudo nginx -t
             sudo systemctl reload nginx
